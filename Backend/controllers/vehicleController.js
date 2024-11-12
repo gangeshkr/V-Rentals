@@ -21,7 +21,6 @@ const vehicleController = {
             return sendResponse(res, 400, false, 'Start date and end date are required.');
         }
 
-        // Convert dates to ISO format
         const start = new Date(startDate);
         const end = new Date(endDate);
 
