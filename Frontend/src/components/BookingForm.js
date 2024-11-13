@@ -24,10 +24,9 @@ const validationSchemas = {
   4: Yup.object({
     startDate: Yup.date()
       .required('Start date is required')
-      .min(new Date(), 'Start date cannot be in the past'),
+      .min(new Date(Date.now() - 86400000), 'Start date cannot be in the past'), 
     endDate: Yup.date()
       .required('End date is required')
-      .min(Yup.ref('startDate'), 'End date must be after start date'),
   }),
 };
 

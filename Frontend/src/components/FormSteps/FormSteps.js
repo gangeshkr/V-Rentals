@@ -56,7 +56,7 @@ const WheelTypeStep = ({ formik }) => (
 );
 
 const VehicleTypeStep = ({ formik, vehicleTypes, selectedWheels }) => {
-  // Get unique vehicle types based on category
+  
   const uniqueTypes = [...new Set(vehicleTypes
     .filter(vehicle => 
       selectedWheels === "2" ? 
@@ -101,17 +101,21 @@ const VehicleTypeStep = ({ formik, vehicleTypes, selectedWheels }) => {
 };
 
 const VehicleModelStep = ({ formik, allVehicles, availableVehicles, selectedType, hasDateRange }) => {
-  // Filter vehicles by type from all vehicles
+  
   const vehiclesOfType = allVehicles.filter(
     vehicle => vehicle.VehicleType?.name === selectedType
   );
 
-  // If dates are selected, further filter by availability
   const finalVehicleList = hasDateRange ? 
     vehiclesOfType.filter(vehicle => 
       availableVehicles.some(av => av.id === vehicle.id)
     ) : 
     vehiclesOfType;
+
+    const handleVehicleTypeChange = (event) => {
+      formik.setFieldValue('vehicleType', event.target.value);
+      formik.setFieldValue('vehicleModel', '');
+    };
 
   return (
     <Box>
@@ -171,7 +175,7 @@ const VehicleModelStep = ({ formik, allVehicles, availableVehicles, selectedType
   );
 };
 
-// DateRangeStep remains mostly the same but with additional callback
+
 const DateRangeStep = ({ formik, onDateChange }) => (
   <LocalizationProvider dateAdapter={AdapterDateFns}>
     <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
