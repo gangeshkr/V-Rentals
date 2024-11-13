@@ -16,7 +16,7 @@ const vehicleController = {
 
     getAvailableVehicles: asyncWrapper(async (req, res) => {
         const { startDate, endDate } = req.query;
-
+        console.log(startDate, "this is start Dtae and ", endDate)
         if (!startDate || !endDate) {
             return sendResponse(res, 400, false, 'Start date and end date are required.');
         }
@@ -43,23 +43,23 @@ const vehicleController = {
             const bookedVehicleIds = await Booking.findAll({
                 attributes: ['VehicleId'],
                 where: {
-                    status: {
-                        [Op.ne]: 'cancelled'
+                  status: {
+                    [Op.ne]: 'cancelled'
+                  },
+                  [Op.and]: [
+                    {
+                      startDate: {
+                        [Op.lt]: end
+                      }
                     },
-                    [Op.and]: [
-                        {
-                            startDate: {
-                                [Op.lt]: end
-                            }
-                        },
-                        {
-                            endDate: {
-                                [Op.gt]: start
-                            }
-                        }
-                    ]
+                    {
+                      endDate: {
+                        [Op.gt]: start
+                      }
+                    }
+                  ]
                 }
-            }).then(bookings => bookings.map(booking => booking.VehicleId));
+              }).then(bookings => bookings.map(booking => booking.VehicleId));
 
             const availableVehicles = allVehicles.filter(
                 vehicle => !bookedVehicleIds.includes(vehicle.id)

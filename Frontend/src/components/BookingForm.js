@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Container, Paper, Typography, Button, Box, Stepper, Step, StepLabel } from '@mui/material';
+import { Container, Paper, Typography, Button, Box, Stepper, Step, StepLabel, Alert } from '@mui/material';
 import axios from 'axios';
 import { NameStep, WheelTypeStep, VehicleTypeStep, VehicleModelStep, DateRangeStep } from '../components/FormSteps/FormSteps';
 
@@ -22,7 +22,9 @@ const validationSchemas = {
     vehicleModel: Yup.string().required('Please select vehicle model'),
   }),
   4: Yup.object({
-    startDate: Yup.date().required('Start date is required'),
+    startDate: Yup.date()
+      .required('Start date is required')
+      .min(new Date(), 'Start date cannot be in the past'),
     endDate: Yup.date()
       .required('End date is required')
       .min(Yup.ref('startDate'), 'End date must be after start date'),
@@ -33,6 +35,8 @@ const BookingForm = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [vehicles, setVehicles] = useState([]);
   const [availableVehicles, setAvailableVehicles] = useState([]);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const formik = useFormik({
     initialValues: {
@@ -48,19 +52,22 @@ const BookingForm = () => {
     onSubmit: async (values) => {
       if (activeStep === steps.length - 1) {
         try {
-          await axios.post('http://localhost:3001/api/booking/createBooking', {
-            VehicleId: values.vehicleModel,
-            startDate: values.startDate,
-            endDate: values.endDate,
+          const response = await axios.post('http://localhost:3001/api/booking/createBooking', {
+            vehicleId: values.vehicleModel,
+            startDate: values.startDate.toISOString().split('T')[0],
+            endDate: values.endDate.toISOString().split('T')[0],
             customerName: `${values.firstName} ${values.lastName}`,
             customerEmail: `${values.firstName.toLowerCase()}.${values.lastName.toLowerCase()}@example.com`,
-            status: 'confirmed'
           });
-          alert('Booking successful!');
-          formik.resetForm();
-          setActiveStep(0);
+
+          if (response.data.success) {
+            setSuccess('Booking successful!');
+            formik.resetForm();
+            setActiveStep(0);
+          }
         } catch (error) {
-          alert(`Booking failed: ${error.response?.data?.message || error.message}`);
+          const errorMessage = error.response?.data?.message || 'An error occurred while creating the booking';
+          setError(errorMessage);
         }
       } else {
         setActiveStep(activeStep + 1);
@@ -68,36 +75,42 @@ const BookingForm = () => {
     },
   });
 
+  // Fetch all vehicles on component mount
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
         const response = await axios.get('http://localhost:3001/api/vehicle/allVehicles');
         setVehicles(response.data.data);
       } catch (error) {
-        console.error('Error fetching vehicles:', error);
+        setError('Error fetching vehicles');
       }
     };
     fetchVehicles();
   }, []);
 
-  useEffect(() => {
-    const fetchAvailableVehicles = async () => {
-      if (formik.values.startDate && formik.values.endDate) {
-        try {
-          const response = await axios.get('http://localhost:3001/api/vehicle/availableVehicles', {
-            params: {
-              startDate: formik.values.startDate.toISOString().split('T')[0],
-              endDate: formik.values.endDate.toISOString().split('T')[0],
-            },
-          });
-          setAvailableVehicles(response.data.data);
-        } catch (error) {
-          console.error('Error fetching available vehicles:', error);
-        }
+  // Fetch available vehicles when dates change
+  const fetchAvailableVehicles = async () => {
+    if (formik.values.startDate && formik.values.endDate) {
+      try {
+        const response = await axios.get('http://localhost:3001/api/vehicle/availableVehicles', {
+          params: {
+            startDate: formik.values.startDate.toISOString().split('T')[0],
+            endDate: formik.values.endDate.toISOString().split('T')[0],
+          },
+        });
+        setAvailableVehicles(response.data.data);
+      } catch (error) {
+        setError('Error fetching available vehicles');
       }
-    };
+    }
+  };
+
+  const handleDateChange = () => {
+    formik.setFieldValue('vehicleModel', ''); // Reset vehicle model when dates change
     fetchAvailableVehicles();
-  }, [formik.values.startDate, formik.values.endDate]);
+  };
+
+  const hasDateRange = Boolean(formik.values.startDate && formik.values.endDate);
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -108,9 +121,17 @@ const BookingForm = () => {
       case 2:
         return <VehicleTypeStep formik={formik} vehicleTypes={vehicles} selectedWheels={formik.values.wheels} />;
       case 3:
-        return <VehicleModelStep formik={formik} availableVehicles={availableVehicles} selectedType={formik.values.vehicleType} />;
+        return (
+          <VehicleModelStep 
+            formik={formik} 
+            allVehicles={vehicles} 
+            availableVehicles={availableVehicles}
+            selectedType={formik.values.vehicleType}
+            hasDateRange={hasDateRange}
+          />
+        );
       case 4:
-        return <DateRangeStep formik={formik} />;
+        return <DateRangeStep formik={formik} onDateChange={handleDateChange} />;
       default:
         return null;
     }
@@ -131,6 +152,18 @@ const BookingForm = () => {
           ))}
         </Stepper>
 
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+
         <form onSubmit={formik.handleSubmit}>
           <Box sx={{ minHeight: '200px' }}>
             {renderStepContent(activeStep)}
@@ -139,7 +172,7 @@ const BookingForm = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button
               disabled={activeStep === 0}
-              onClick={() => setActiveStep(activeStep - 1)}
+              onClick={() => setActiveStep((prev) => prev - 1)}
               variant="outlined"
             >
               Back
@@ -150,7 +183,7 @@ const BookingForm = () => {
               color="primary"
               disabled={!formik.isValid || formik.isSubmitting}
             >
-              {activeStep === steps.length - 1 ? 'Submit' : 'Next'}
+              {activeStep === steps.length - 1 ? 'Confirm Booking' : 'Next'}
             </Button>
           </Box>
         </form>

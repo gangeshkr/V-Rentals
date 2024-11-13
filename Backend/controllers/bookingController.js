@@ -18,28 +18,28 @@ const bookingController = {
 
         const existingBooking = await Booking.findOne({
             where: {
-                VehicleId: vehicleId,
-                status: {
-                    [Op.ne]: 'cancelled'
+              VehicleId: vehicleId,
+              status: {
+                [Op.ne]: 'cancelled'
+              },
+              [Op.or]: [
+                {
+                  startDate: {
+                    [Op.between]: [startDate, endDate]
+                  }
                 },
-                [Op.or]: [
-                    {
-                        startDate: {
-                            [Op.between]: [startDate, endDate]
-                        }
-                    },
-                    {
-                        endDate: {
-                            [Op.between]: [startDate, endDate]
-                        }
-                    }
-                ]
+                {
+                  endDate: {
+                    [Op.between]: [startDate, endDate]
+                  }
+                }
+              ]
             }
-        });
-
-        if (existingBooking) {
+          });
+          
+          if (existingBooking) {
             return sendResponse(res, 400, false, 'Vehicle is not available for the selected dates.');
-        }
+          }
 
         const booking = await Booking.create({
             VehicleId: vehicleId,

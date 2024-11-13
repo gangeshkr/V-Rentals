@@ -1,5 +1,4 @@
-
-import { TextField, Box } from '@mui/material';
+import { TextField, Box, Typography } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -57,30 +56,40 @@ const WheelTypeStep = ({ formik }) => (
 );
 
 const VehicleTypeStep = ({ formik, vehicleTypes, selectedWheels }) => {
-  const filteredTypes = vehicleTypes.filter(type => 
-    (selectedWheels === "2" && type.vehicleType.category === "bike") ||
-    (selectedWheels === "4" && type.vehicleType.category === "car")
-  );
+  // Get unique vehicle types based on category
+  const uniqueTypes = [...new Set(vehicleTypes
+    .filter(vehicle => 
+      selectedWheels === "2" ? 
+        vehicle.VehicleType?.category === "bike" : 
+        vehicle.VehicleType?.category === "car"
+    )
+    .map(vehicle => vehicle.VehicleType?.name)
+  )];
 
   return (
-    <FormControl 
-      component="fieldset" 
+    <FormControl
+      component="fieldset"
       error={formik.touched.vehicleType && Boolean(formik.errors.vehicleType)}
       fullWidth
     >
-      <FormLabel component="legend">Vehicle Type</FormLabel>
+      <FormLabel component="legend">
+        {selectedWheels === "2" ? "Bike Type" : "Car Type"}
+      </FormLabel>
       <RadioGroup
         name="vehicleType"
         value={formik.values.vehicleType}
-        onChange={formik.handleChange}
+        onChange={(e) => {
+          formik.setFieldValue('vehicleType', e.target.value);
+          formik.setFieldValue('vehicleModel', ''); // Reset vehicle model when type changes
+        }}
         onBlur={formik.handleBlur}
       >
-        {filteredTypes.map((type) => (
+        {uniqueTypes.map((typeName) => (
           <FormControlLabel
-            key={type.id}
-            value={type.id.toString()}
+            key={typeName}
+            value={typeName}
             control={<Radio />}
-            label={type.name}
+            label={typeName}
           />
         ))}
       </RadioGroup>
@@ -91,71 +100,105 @@ const VehicleTypeStep = ({ formik, vehicleTypes, selectedWheels }) => {
   );
 };
 
-const VehicleModelStep = ({ formik, availableVehicles, selectedType }) => {
-  const filteredVehicles = availableVehicles.filter(
-    vehicle => vehicle.VehicleTypeId.toString() === selectedType
+const VehicleModelStep = ({ formik, allVehicles, availableVehicles, selectedType, hasDateRange }) => {
+  // Filter vehicles by type from all vehicles
+  const vehiclesOfType = allVehicles.filter(
+    vehicle => vehicle.VehicleType?.name === selectedType
   );
 
+  // If dates are selected, further filter by availability
+  const finalVehicleList = hasDateRange ? 
+    vehiclesOfType.filter(vehicle => 
+      availableVehicles.some(av => av.id === vehicle.id)
+    ) : 
+    vehiclesOfType;
+
   return (
-    <FormControl 
-      component="fieldset" 
-      error={formik.touched.vehicleModel && Boolean(formik.errors.vehicleModel)}
-      fullWidth
-    >
-      <FormLabel component="legend">Vehicle Model</FormLabel>
-      <RadioGroup
-        name="vehicleModel"
-        value={formik.values.vehicleModel}
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
+    <Box>
+      <FormControl
+        component="fieldset"
+        error={formik.touched.vehicleModel && Boolean(formik.errors.vehicleModel)}
+        fullWidth
       >
-        {filteredVehicles.map((vehicle) => (
-          <FormControlLabel
-            key={vehicle.id}
-            value={vehicle.id.toString()}
-            control={<Radio />}
-            label={`${vehicle.name} - ${vehicle.model} (${vehicle.year})`}
-          />
-        ))}
-      </RadioGroup>
-      {formik.touched.vehicleModel && formik.errors.vehicleModel && (
-        <FormHelperText>{formik.errors.vehicleModel}</FormHelperText>
-      )}
-    </FormControl>
+        <FormLabel component="legend">Select Vehicle Model</FormLabel>
+        {finalVehicleList.length === 0 ? (
+          <Typography color="error" sx={{ mt: 2 }}>
+            {hasDateRange ? 
+              "No vehicles available for the selected type and dates." :
+              "No vehicles available for the selected type."}
+          </Typography>
+        ) : (
+          <>
+            <RadioGroup
+              name="vehicleModel"
+              value={formik.values.vehicleModel}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            >
+              {finalVehicleList.map((vehicle) => (
+                <FormControlLabel
+                  key={vehicle.id}
+                  value={vehicle.id.toString()}
+                  control={<Radio />}
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        {`${vehicle.name} - ${vehicle.model} (${vehicle.year})`}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        Registration: {vehicle.registrationNumber}
+                      </Typography>
+                      {hasDateRange && <Typography variant="caption" color="success.main" display="block">
+                        Available for selected dates
+                      </Typography>}
+                    </Box>
+                  }
+                />
+              ))}
+            </RadioGroup>
+            {hasDateRange && (
+              <Typography variant="caption" color="info.main" sx={{ mt: 1, display: 'block' }}>
+                * Only showing vehicles available for your selected dates
+              </Typography>
+            )}
+          </>
+        )}
+        {formik.touched.vehicleModel && formik.errors.vehicleModel && (
+          <FormHelperText>{formik.errors.vehicleModel}</FormHelperText>
+        )}
+      </FormControl>
+    </Box>
   );
 };
 
-const DateRangeStep = ({ formik }) => (
+// DateRangeStep remains mostly the same but with additional callback
+const DateRangeStep = ({ formik, onDateChange }) => (
   <LocalizationProvider dateAdapter={AdapterDateFns}>
     <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
       <DatePicker
         label="Start Date"
         value={formik.values.startDate}
-        onChange={(date) => formik.setFieldValue('startDate', date)}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            error={formik.touched.startDate && Boolean(formik.errors.startDate)}
-            helperText={formik.touched.startDate && formik.errors.startDate}
-            fullWidth
-          />
-        )}
+        onChange={(date) => {
+          formik.setFieldValue('startDate', date);
+          if (onDateChange) onDateChange();
+        }}
         minDate={new Date()}
       />
       <DatePicker
         label="End Date"
         value={formik.values.endDate}
-        onChange={(date) => formik.setFieldValue('endDate', date)}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            error={formik.touched.endDate && Boolean(formik.errors.endDate)}
-            helperText={formik.touched.endDate && formik.errors.endDate}
-            fullWidth
-          />
-        )}
+        onChange={(date) => {
+          formik.setFieldValue('endDate', date);
+          if (onDateChange) onDateChange();
+        }}
         minDate={formik.values.startDate || new Date()}
       />
+      {formik.touched.startDate && formik.errors.startDate && (
+        <FormHelperText error>{formik.errors.startDate}</FormHelperText>
+      )}
+      {formik.touched.endDate && formik.errors.endDate && (
+        <FormHelperText error>{formik.errors.endDate}</FormHelperText>
+      )}
     </Box>
   </LocalizationProvider>
 );
