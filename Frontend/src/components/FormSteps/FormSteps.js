@@ -80,7 +80,7 @@ const VehicleTypeStep = ({ formik, vehicleTypes, selectedWheels }) => {
         value={formik.values.vehicleType}
         onChange={(e) => {
           formik.setFieldValue('vehicleType', e.target.value);
-          formik.setFieldValue('vehicleModel', ''); // Reset vehicle model when type changes
+          formik.setFieldValue('vehicleModel', '');
         }}
         onBlur={formik.handleBlur}
       >

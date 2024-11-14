@@ -74,7 +74,6 @@ const BookingForm = () => {
     },
   });
 
-  // Fetch all vehicles on component mount
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
@@ -87,7 +86,6 @@ const BookingForm = () => {
     fetchVehicles();
   }, []);
 
-  // Fetch available vehicles when dates change
   const fetchAvailableVehicles = async () => {
     if (formik.values.startDate && formik.values.endDate) {
       try {
@@ -105,7 +103,7 @@ const BookingForm = () => {
   };
 
   const handleDateChange = () => {
-    formik.setFieldValue('vehicleModel', ''); // Reset vehicle model when dates change
+    // formik.setFieldValue('vehicleModel', '');
     fetchAvailableVehicles();
   };
 
